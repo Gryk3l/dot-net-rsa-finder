@@ -3,6 +3,8 @@ Python script to find private RSA keys in .NET binary mem dumps given the public
 
 TLDR: `rsakeyfinder` didn't work for me even specifying the modulus of the public key ¯\_(ツ)_/¯
 
+DISCLAIMER: Please, feel free to tell me if you encounter any problem/bug while using this script
+
 ### Program description
 
 Finds all occurrences of the modulus of the given public key, and tries to parse the next data in the dump as P, then calculate Q... etc
