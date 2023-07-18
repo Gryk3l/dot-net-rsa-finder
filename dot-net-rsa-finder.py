@@ -7,10 +7,8 @@ import argparse
 import xml.etree.ElementTree as ET
 from base64 import b64decode
 import colorama
+import mmap
 colorama.init()
-
-#TO-DO consume letmost 0s from dump when doing checks, cause hex 010001 is equivalent to 10001 but check would fail
-#   TO-DO add a 0 before Q in dump and test the padding management
 
 LOG_LEVELS = ['debug', 'info', 'warn', 'error']
 DEBUG_TAG = f"{colorama.Style.BRIGHT}{colorama.Fore.BLUE}[DEBUG]{colorama.Style.RESET_ALL}\t"
@@ -20,19 +18,19 @@ ERROR_TAG = f"{colorama.Style.BRIGHT}{colorama.Fore.RED}[ERROR]{colorama.Style.R
 KEYS_FOUND = []
 
 #   Instantiate the parser
-parser = argparse.ArgumentParser(description='Optional app description')
+parser = argparse.ArgumentParser()
 
 #   Args
 parser.add_argument('-f', '--file', type=str, required=True, help='Dump file to look for the key inside.')
 parser.add_argument('-o', '--output', type=str, required=True, help='File to export the private RSA key to')
-parser.add_argument('-e', '--exp', type=str, required=False, help='Public exponent as hex stream')
-parser.add_argument('-d', '--debug-level', type=str, required=False, default='warn', choices=LOG_LEVELS)
-
 arg_mod_input_group = parser.add_mutually_exclusive_group(required=True)
 arg_mod_input_group.add_argument('-m', '--mod', type=str, required=False, help='Modulus as hex stream')
 arg_mod_input_group.add_argument('-M', '--mod-file', type=str, required=False, help='File containing the modulus as hex stream')
 arg_mod_input_group.add_argument('-p', '--pubkey-pem', type=str, required=False, help='File containing the public key in PEM format')
 arg_mod_input_group.add_argument('-P', '--pubkey-xml', type=str, required=False, help='File containing the public key in XML format')
+parser.add_argument('-e', '--exp', type=str, required=False, help='Public exponent as hex stream (only if -m is used)')
+parser.add_argument('-d', '--debug-level', type=str, required=False, default='warn', choices=LOG_LEVELS, help='Debug level. Default is warn')
+
 
 args = parser.parse_args()
 FILE_INPUT = args.file
@@ -103,7 +101,7 @@ if __name__ == "__main__":
     if args.mod is not None:
         mod_hex = args.mod
         if args.exp is None:
-            print(ERROR_TAG+'-e/--exp must be provided when -m/--mod is provided!')
+            LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('error') and print(ERROR_TAG+'-e/--exp must be provided when -m/--mod is provided!')
             exit(1)
         exp_value = int(args.exp, 16)
     elif args.mod_file is not None:
@@ -114,8 +112,8 @@ if __name__ == "__main__":
     elif args.pubkey_xml is not None:
         mod_hex, exp_value = read_xml_public_key(args.pubkey_xml)
     else:
-        print(ERROR_TAG+'Should\'t get here since argparse group requires one of the arguments to be provided')
-        print(ERROR_TAG+'Specify the modulus')
+        LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('error') and print(ERROR_TAG+'Should\'t get here since argparse group requires one of the arguments to be provided')
+        LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('error') and print(ERROR_TAG+'Specify the modulus')
         exit(1)
 
     mod_value = int(mod_hex, 16)
@@ -123,29 +121,40 @@ if __name__ == "__main__":
     #   Calculate mod hex stream length and fix if needed
     mod_bytes_len = len(mod_hex) / 2
     if mod_bytes_len % 1 != 0:
-        print(WARN_TAG+'The modulus hex stream provided has an odd length')
-        print(WARN_TAG+'Script will try to add a "0" before it and run normally')
+        LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('warn') and print(WARN_TAG+'The modulus hex stream provided has an odd length')
+        LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('warn') and print(WARN_TAG+'Script will try to add a "0" before it and run normally')
         mod_hex = '0' + mod_hex
         mod_bytes_len = len(mod_hex) / 2
     mod_bytes_len = int(mod_bytes_len)
 
     #   Load dump, both as binary data and hex stream
-    with open(FILE_INPUT, "rb") as file:
-        data = file.read()
-    hex_stream = binascii.hexlify(data).decode("utf-8")
-
-    last_found_offset_bytes = 0
-
     occurrences = []
-    start_index = 0
     valid_keys = 1
-    while True:
-        index = hex_stream.find(mod_hex, start_index)
-        if index == -1:
-            break
-        LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('info') and print(INFO_TAG+'Found the modulus at', hex(index // 2))
-        occurrences.append(index // 2)
-        start_index = index + 1
+
+    with open(FILE_INPUT, "rb") as file:
+        data = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ)
+        index = 0
+        while True:
+            index = data.find(binascii.unhexlify(mod_hex), index)
+            if index == -1:
+                break
+            LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('info') and print(INFO_TAG+'Found the modulus at', hex(index // 2))
+            occurrences.append(index)
+            index += 1
+    #   OLD way of reading file and finding matches, much more inefficient
+    #with open(FILE_INPUT, "rb") as file:
+    #    data = file.read()
+    #hex_stream = binascii.hexlify(data).decode("utf-8")
+    #last_found_offset_bytes = 0
+    #occurrences = []
+    #start_index = 0
+    #while True:
+    #    index = hex_stream.find(mod_hex, start_index)
+    #    if index == -1:
+    #        break
+    #    LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('info') and print(INFO_TAG+'Found the modulus at', hex(index // 2))
+    #    occurrences.append(index // 2)
+    #    start_index = index + 1
 
     for start_byte_offset in occurrences:
         LOG_LEVELS.index(args.debug_level) <= LOG_LEVELS.index('debug') and print(DEBUG_TAG+'Processing finding at', hex(start_byte_offset))
