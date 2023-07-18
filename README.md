@@ -31,7 +31,9 @@ options:
 ### Example:
 
 Reading public key from a PEM file:
+
 `dot-net-rsa-finder.py -f powershell.dmp -p pub.pem -o priv.pem`
 
 Passing mod and exp as parameters:
+
 `dot-net-rsa-finder.py -f powershell.dmp -m 'ef765ad87f4...8ee786fa65ef' -e 'ef7...65ae'`
