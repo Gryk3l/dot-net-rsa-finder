@@ -1,4 +1,4 @@
-# dot-net-rsa-finder
+# dot-net-rsa-finder.py
 Python script to find private RSA keys in .NET binary mem dumps given the public key
 
 TLDR: `rsakeyfinder` didn't work for me even specifying the modulus of the public key ¯\_(ツ)_/¯
