@@ -25,7 +25,8 @@ options:
                         File containing the public key in XML format
   -e EXP, --exp EXP     Public exponent as hex stream (only if -m is used)
   -d {debug,info,warn,error}, --debug-level {debug,info,warn,error}
-                        Debug level. Default is warn```
+                        Debug level. Default is warn
+```
 
 ### Example:
 
