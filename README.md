@@ -14,6 +14,7 @@ It is designed to work for dumps of .NET binaries, but should work for other bin
 ### USAGE:
 
 ```
+$ dot-net-rsa-finder.py -h
 usage: dot-net-rsa-finder.py [-h] -f FILE -o OUTPUT (-m MOD | -M MOD_FILE | -p PUBKEY_PEM | -P PUBKEY_XML) [-e EXP] [-d {debug,info,warn,error}]
 
 options:
